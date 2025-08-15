@@ -2,7 +2,14 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Todo App', () => {
   test.beforeEach(async ({ page }) => {
+    // Reset the API state by making a request to reset todos
+    await page.request.delete('/api/todos?id=0')
+    
+    // Navigate to the page
     await page.goto('/')
+    
+    // Wait for the page to load
+    await page.waitForLoadState('networkidle')
   })
 
   test('should display the todo app title', async ({ page }) => {
@@ -20,7 +27,7 @@ test.describe('Todo App', () => {
   })
 
   test('should add a new todo', async ({ page }) => {
-    const newTodoText = 'Test new todo item'
+    const newTodoText = `Test new todo item ${Date.now()}`
     
     // Fill the input and submit
     await page.fill('input[placeholder="Add a new todo..."]', newTodoText)
@@ -95,7 +102,12 @@ test.describe('Todo App', () => {
     
     // Fill the input with a very long todo
     await page.fill('input[placeholder="Add a new todo..."]', longTodo)
+    
+    // Try to submit the form
     await page.click('button:has-text("Add")')
+    
+    // Wait a bit for validation to process
+    await page.waitForTimeout(100)
     
     // Check that validation error appears
     await expect(page.getByText('Todo title must be less than 100 characters')).toBeVisible()

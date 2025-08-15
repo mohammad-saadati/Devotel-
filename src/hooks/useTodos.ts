@@ -3,7 +3,7 @@ import { useDispatch } from 'react-redux'
 import { setTodos, addTodo, updateTodo, deleteTodo } from '@/store/todoSlice'
 import { Todo, CreateTodoRequest, UpdateTodoRequest } from '@/types/todo'
 
-const API_BASE_URL = 'https://dummyjson.com'
+const API_BASE_URL = '/api'
 
 // Fetch all todos
 export const useTodos = () => {
@@ -35,26 +35,28 @@ export const useCreateTodo = () => {
   return useMutation({
     mutationFn: async (todoData: CreateTodoRequest): Promise<Todo> => {
       console.log('Sending request to create todo:', todoData)
-      // DummyJSON doesn't actually persist data, so we'll create a mock response
-      // that simulates a successful creation
-      const mockTodo: Todo = {
-        id: Date.now(), // Generate a unique ID
-        todo: todoData.todo,
-        completed: todoData.completed,
-        userId: todoData.userId,
+      const response = await fetch(`${API_BASE_URL}/todos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(todoData),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to create todo')
       }
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      console.log('Created mock todo:', mockTodo)
-      return mockTodo
+      const newTodo = await response.json()
+      console.log('Created todo:', newTodo)
+      return newTodo
     },
     onSuccess: (newTodo) => {
       console.log('Todo created successfully:', newTodo)
       // Add to Redux store immediately for optimistic update
       dispatch(addTodo(newTodo))
-      // Don't invalidate queries since we're using mock data and managing state in Redux
+      // Invalidate and refetch todos to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['todos'] })
     },
     onError: (error) => {
       console.error('Failed to create todo:', error)
@@ -71,24 +73,27 @@ export const useUpdateTodo = () => {
     mutationFn: async ({ id, ...updateData }: { id: number } & UpdateTodoRequest): Promise<Todo> => {
       console.log('Updating todo:', id, updateData)
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300))
+      const response = await fetch(`${API_BASE_URL}/todos`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id, ...updateData }),
+      })
       
-      // Return mock updated todo
-      const mockUpdatedTodo: Todo = {
-        id,
-        todo: updateData.todo || 'Updated todo',
-        completed: updateData.completed || false,
-        userId: updateData.userId || 1,
+      if (!response.ok) {
+        throw new Error('Failed to update todo')
       }
       
-      console.log('Updated todo:', mockUpdatedTodo)
-      return mockUpdatedTodo
+      const updatedTodo = await response.json()
+      console.log('Updated todo:', updatedTodo)
+      return updatedTodo
     },
     onSuccess: (updatedTodo) => {
       // Update Redux store immediately for optimistic update
       dispatch(updateTodo(updatedTodo))
-      // Don't invalidate queries since we're using mock data and managing state in Redux
+      // Invalidate and refetch todos to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['todos'] })
     },
   })
 }
@@ -102,15 +107,21 @@ export const useDeleteTodo = () => {
     mutationFn: async (id: number): Promise<void> => {
       console.log('Deleting todo:', id)
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300))
+      const response = await fetch(`${API_BASE_URL}/todos?id=${id}`, {
+        method: 'DELETE',
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete todo')
+      }
       
       console.log('Todo deleted successfully:', id)
     },
     onSuccess: (_, deletedId) => {
       // Remove from Redux store immediately for optimistic update
       dispatch(deleteTodo(deletedId))
-      // Don't invalidate queries since we're using mock data and managing state in Redux
+      // Invalidate and refetch todos to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['todos'] })
     },
   })
 }
